@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-lang-key="appTitle">電池內阻配對與視覺化工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .container { width: 100%; max-width: 800px; background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
+        .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .control-group { display: flex; flex-direction: column; }
+        .config-group, .filter-group { display: flex; gap: 20px; }
+        .filter-group .control-group { flex-grow: 1; }
+        label { font-weight: 600; margin-bottom: 8px; }
+        .checkbox-label { display: flex; flex-direction: row; align-items: center; gap: 10px; font-weight: normal; margin-top: 5px; }
+        textarea { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; height: 120px; resize: vertical; }
+        input[type="number"], input[type="file"], input[type="text"] { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        input:disabled { background-color: #eee; }
+        button { padding: 12px 20px; background-color: #1a73e8; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px; }
+        button:hover { background-color: #155ab6; }
+        .results-container, .charts-container { margin-top: 20px; }
+        .result-group { background-color: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 15px; }
+        .result-group h3 { margin-top: 0; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px; }
+        .result-group p { margin: 5px 0; }
+        .result-group .details { font-size: 14px; color: #555; }
+        #total-result { margin-top: 25px; padding-top: 15px; border-top: 2px solid #1a73e8; text-align: right; font-size: 1.2em; font-weight: bold; }
+        .charts-container { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; }
+        .chart-wrapper { margin-bottom: 30px; }
+        #lang-switcher { text-align: right; margin-bottom: 10px; }
+        #lang-switcher button { background: none; border: none; color: #1a73e8; cursor: pointer; font-size: 14px; padding: 5px; }
+        #lang-switcher button.active { font-weight: bold; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="lang-switcher">
+            <button data-lang="zh" class="active">中文</button> / <button data-lang="en">English</button>
+        </div>
+        <h1 data-lang-key="appTitle">電池內阻配對與視覺化工具</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label for="csvFile" data-lang-key="uploadLabel">1. 上傳 CSV 檔案</label>
+                <input type="file" id="csvFile" accept=".csv">
+            </div>
+            <div class="control-group">
+                <label for="textInput" data-lang-key="pasteLabel">2. 或貼上資料 (CSV 或內阻值)</label>
+                <textarea id="textInput" data-lang-key-placeholder="pastePlaceholder"></textarea>
+            </div>
+            <div class="config-group">
+                <div class="control-group">
+                    <label for="sValue" data-lang-key="sValueLabel">3. 串數 (S)</label>
+                    <input type="number" id="sValue" data-lang-key-placeholder="sValuePlaceholder">
+                </div>
+                <div class="control-group">
+                    <label for="pValue" data-lang-key="pValueLabel">4. 並數 (P)</label>
+                    <input type="number" id="pValue" data-lang-key-placeholder="pValuePlaceholder">
+                </div>
+            </div>
+            <div class="control-group">
+                <label data-lang-key="filterLabel">5. 設定篩選條件 (可選)</label>
+                <div id="csvFilters" style="display: none;">
+                    <label class="checkbox-label"><input type="checkbox" id="includeFailCheck"><span data-lang-key="includeFailLabel">納入FAIL電池進行配對</span></label>
+                    <label class="checkbox-label"><input type="checkbox" id="enableVoltageFilter"><span data-lang-key="enableVoltageFilterLabel">啟用電壓範圍篩選</span></label>
+                    <div class="filter-group">
+                        <div class="control-group"><input type="text" id="voltageMin" disabled data-lang-key-placeholder="voltageMinPlaceholder"></div>
+                        <div class="control-group"><input type="text" id="voltageMax" disabled data-lang-key-placeholder="voltageMaxPlaceholder"></div>
+                    </div>
+                    <label class="checkbox-label" data-lang-key="groupFilterLabel">群組篩選</label>
+                    <div id="groupFilterCheckboxes" class="filter-group" style="flex-direction: column; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px;"></div>
+                </div>
+                <label class="checkbox-label"><input type="checkbox" id="enableResistanceFilter"><span data-lang-key="enableResistanceFilterLabel">啟用內阻範圍篩選 (mΩ)</span></label>
+                <div class="filter-group">
+                    <div class="control-group"><input type="text" id="resistanceMin" disabled data-lang-key-placeholder="resistanceMinPlaceholder"></div>
+                    <div class="control-group"><input type="text" id="resistanceMax" disabled data-lang-key-placeholder="resistanceMaxPlaceholder"></div>
+                </div>
+            </div>
+            <button id="calculateBtn" data-lang-key="calculateButton">6. 計算與視覺化</button>
+        </div>
+        <div id="results" class="results-container"></div>
+        <div id="charts" class="charts-container"></div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Language Resources ---
+            const langResources = {
+                appTitle: { zh: '電池內阻配對與視覺化工具', en: 'Battery Cell Matching & Visualization Tool' },
+                uploadLabel: { zh: '1. 上傳 CSV 檔案', en: '1. Upload CSV File' },
+                pasteLabel: { zh: '2. 或貼上資料 (CSV 或內阻值)', en: '2. Or Paste Data (CSV or Resistance List)' },
+                pastePlaceholder: { zh: '貼上 CSV 內容，或一行一個的內阻值 (mΩ)', en: 'Paste CSV content, or resistance values (mΩ) one per line' },
+                sValueLabel: { zh: '3. 串數 (S)', en: '3. Series (S)' },
+                sValuePlaceholder: { zh: '例如: 6', en: 'e.g., 6' },
+                pValueLabel: { zh: '4. 並數 (P)', en: '4. Parallel (P)' },
+                pValuePlaceholder: { zh: '例如: 3', en: 'e.g., 3' },
+                filterLabel: { zh: '5. 設定篩選條件 (可選)', en: '5. Set Filters (Optional)' },
+                includeFailLabel: { zh: '納入FAIL電池進行配對', en: 'Include FAIL cells in matching' },
+                enableVoltageFilterLabel: { zh: '啟用電壓範圍篩選', en: 'Enable Voltage Range Filter' },
+                voltageMinPlaceholder: { zh: '最小電壓', en: 'Min Voltage' },
+                voltageMaxPlaceholder: { zh: '最大電壓', en: 'Max Voltage' },
+                enableResistanceFilterLabel: { zh: '啟用內阻範圍篩選 (mΩ)', en: 'Enable Resistance Range Filter (mΩ)' },
+                resistanceMinPlaceholder: { zh: '最小內阻', en: 'Min Resistance' },
+                resistanceMaxPlaceholder: { zh: '最大內阻', en: 'Max Resistance' },
+                groupFilterLabel: { zh: '群組篩選', en: 'Group Filter' },
+                calculateButton: { zh: '6. 計算與視覺化', en: '6. Calculate & Visualize' },
+                resultsTitle: { zh: '配對結果', en: 'Matching Results' },
+                totalResult: { zh: '電池組總內阻', en: 'Total Pack Resistance' },
+                resultGroupHeader: { zh: '第 {i} 並 (P{i})', en: 'Group {i} (P{i})' },
+                cellIdLabel: { zh: '電池編號', en: 'Cell IDs' },
+                cellResLabel: { zh: '各別內阻', en: 'Individual Resistances' },
+                parallelResLabel: { zh: '並聯後內阻', en: 'Parallel Resistance' },
+                groupedChartTitle: { zh: '每並(P)中各電池內阻分佈', en: 'Resistance Distribution per Parallel Group' },
+                voltageChartTitle: { zh: '所有已篩選電池 電壓分佈', en: 'Voltage Distribution of All Filtered Cells' },
+                resistanceChartTitle: { zh: '所有已篩選電池 內阻分佈', en: 'Resistance Distribution of All Filtered Cells' },
+                voltageAxisLabel: { zh: '電壓 (V)', en: 'Voltage (V)' },
+                resistanceAxisLabel: { zh: '內阻 (mΩ)', en: 'Resistance (mΩ)' },
+                parallelPositionLabel: { zh: 'P{i}', en: 'P{i}' },
+                alert_noInput: { zh: '請提供有效的輸入資料。', en: 'Please provide valid input data.' },
+                alert_noCells: { zh: '無法從輸入內容中解析出有效的電池資料。', en: 'Could not parse valid cell data from the input.' },
+                alert_invalidConfig: { zh: '請輸入有效的串數和並數。', en: 'Please enter valid Series and Parallel numbers.' },
+                alert_notEnoughCells: { zh: '篩選後的電池數量不足 ({len}顆)，無法滿足 {config} 的需求。', en: 'Not enough cells after filtering ({len}) to meet the {config} requirement.' },
+                alert_noGroupSelected: { zh: '請至少選擇一個群組。', en: 'Please select at least one group.' }
+            };
+
+            // --- DOM Elements ---
+            const dom = {
+                csvFile: document.getElementById('csvFile'),
+                textInput: document.getElementById('textInput'),
+                sValue: document.getElementById('sValue'),
+                pValue: document.getElementById('pValue'),
+                calculateBtn: document.getElementById('calculateBtn'),
+                results: document.getElementById('results'),
+                charts: document.getElementById('charts'),
+                includeFail: document.getElementById('includeFailCheck'),
+                enableVoltage: document.getElementById('enableVoltageFilter'),
+                voltageMin: document.getElementById('voltageMin'),
+                voltageMax: document.getElementById('voltageMax'),
+                enableResistance: document.getElementById('enableResistanceFilter'),
+                resistanceMin: document.getElementById('resistanceMin'),
+                resistanceMax: document.getElementById('resistanceMax'),
+                groupCheckboxes: document.getElementById('groupFilterCheckboxes'),
+                csvFilters: document.getElementById('csvFilters')
+            };
+
+            let voltageChart, resistanceChart, groupedChart;
+            let allCells = [];
+            let currentLang = localStorage.getItem('battery_tool_lang') || 'zh';
+            let currentInputMode = 'none'; // 'csv', 'resistanceList', or 'none'
+
+            // --- Language Switcher Logic ---
+            const setLanguage = (lang) => {
+                currentLang = lang;
+                localStorage.setItem('battery_tool_lang', lang);
+                document.documentElement.lang = lang === 'zh' ? 'zh-TW' : 'en';
+                
+                document.querySelectorAll('[data-lang-key]').forEach(el => {
+                    const key = el.getAttribute('data-lang-key');
+                    if (langResources[key]) {
+                        el.textContent = langResources[key][lang];
+                    }
+                });
+                document.querySelectorAll('[data-lang-key-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-lang-key-placeholder');
+                    if (langResources[key]) {
+                        el.placeholder = langResources[key][lang];
+                    }
+                });
+
+                document.querySelectorAll('#lang-switcher button').forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+                });
+            };
+
+            document.getElementById('lang-switcher').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    setLanguage(e.target.getAttribute('data-lang'));
+                }
+            });
+
+            // --- Main Logic ---
+            const detectInputMode = (text) => {
+                const firstLine = text.trim().split(/\r\n|\n/)[0];
+                if (firstLine.includes(',')) return 'csv';
+                if (/^\d*\.?\d+$/.test(firstLine)) return 'resistanceList';
+                return 'none';
+            };
+
+            const processInput = (text) => {
+                currentInputMode = detectInputMode(text);
+                allCells = [];
+
+                if (currentInputMode === 'csv') {
+                    allCells = parseCSV(text);
+                    dom.csvFilters.style.display = 'block';
+                    const passCells = allCells.filter(c => c.result === 'PASS');
+                    if (passCells.length > 0) {
+                        const voltages = passCells.map(c => c.voltage);
+                        dom.voltageMin.value = Math.min(...voltages).toFixed(4);
+                        dom.voltageMax.value = Math.max(...voltages).toFixed(4);
+                    }
+                    dom.groupCheckboxes.innerHTML = '';
+                    if (allCells.length > 0) {
+                        [...new Set(allCells.map(c => c.group))].sort().forEach(group => {
+                            const div = document.createElement('div');
+                            div.className = 'checkbox-label';
+                            div.innerHTML = `<input type="checkbox" id="group-${group}" value="${group}" class="group-filter-checkbox" checked><label for="group-${group}">${group}</label>`;
+                            dom.groupCheckboxes.appendChild(div);
+                        });
+                    }
+                } else if (currentInputMode === 'resistanceList') {
+                    allCells = parseResistanceList(text);
+                    dom.csvFilters.style.display = 'none';
+                } else {
+                    dom.csvFilters.style.display = 'none';
+                }
+
+                if (allCells.length > 0) {
+                    const resistances = allCells.map(c => c.res * 1000);
+                    dom.resistanceMin.value = Math.min(...resistances).toFixed(2);
+                    dom.resistanceMax.value = Math.max(...resistances).toFixed(2);
+                }
+            };
+
+            const getFilteredCells = () => {
+                if (allCells.length === 0) {
+                    alert(langResources.alert_noInput[currentLang]);
+                    return null;
+                }
+                
+                let cells = [...allCells];
+                if (currentInputMode === 'csv') {
+                    cells = dom.includeFail.checked ? cells : cells.filter(c => c.result === 'PASS');
+                    const selectedGroups = Array.from(document.querySelectorAll('.group-filter-checkbox:checked')).map(cb => cb.value);
+                    if (selectedGroups.length === 0) {
+                        alert(langResources.alert_noGroupSelected[currentLang]);
+                        return null;
+                    }
+                    cells = cells.filter(c => selectedGroups.includes(c.group));
+                    if (dom.enableVoltage.checked) {
+                        const minV = parseFloat(dom.voltageMin.value), maxV = parseFloat(dom.voltageMax.value);
+                        if (!isNaN(minV) && !isNaN(maxV)) cells = cells.filter(c => c.voltage >= minV && c.voltage <= maxV);
+                    }
+                }
+
+                if (dom.enableResistance.checked) {
+                    const minR = parseFloat(dom.resistanceMin.value), maxR = parseFloat(dom.resistanceMax.value);
+                    if (!isNaN(minR) && !isNaN(maxR)) cells = cells.filter(c => (c.res * 1000) >= minR && (c.res * 1000) <= maxR);
+                }
+                return cells;
+            };
+
+            const calculateAndRender = () => {
+                const filteredCells = getFilteredCells();
+                if (!filteredCells) return;
+                const s_val = parseInt(dom.sValue.value, 10), p_val = parseInt(dom.pValue.value, 10);
+                if (isNaN(s_val) || isNaN(p_val) || s_val <= 0 || p_val <= 0) {
+                    alert(langResources.alert_invalidConfig[currentLang]);
+                    return;
+                }
+                const configStr = `${s_val}S${p_val}P`;
+                if (filteredCells.length < s_val * p_val) {
+                    alert(langResources.alert_notEnoughCells[currentLang].replace('{len}', filteredCells.length).replace('{config}', configStr));
+                    return;
+                }
+                const groups = findBestCombination(filteredCells, s_val, p_val);
+                displayResults(groups, configStr);
+                renderCharts(filteredCells, groups, p_val);
+            };
+
+            const findBestCombination = (cells, num_groups, group_size) => {
+                const sorted = [...cells].sort((a, b) => a.res - b.res);
+                const selected = sorted.slice(0, num_groups * group_size);
+                let groups = Array.from({ length: num_groups }, () => []);
+                for (let i = 0; i < selected.length; i++) {
+                    let groupIndex = i % num_groups;
+                    if (Math.floor(i / num_groups) % 2 === 1) groupIndex = num_groups - 1 - groupIndex;
+                    groups[groupIndex].push(selected[i]);
+                }
+                return groups;
+            };
+
+            const displayResults = (groups, configStr) => {
+                let totalRes = 0;
+                dom.results.innerHTML = `<h2>${configStr} ${langResources.resultsTitle[currentLang]}</h2>`;
+                groups.forEach((group, i) => {
+                    const pRes = 1 / group.reduce((sum, c) => sum + (1 / c.res), 0);
+                    totalRes += pRes;
+                    dom.results.innerHTML += `
+                        <div class="result-group">
+                            <h3>${langResources.resultGroupHeader[currentLang].replace(/{i}/g, i + 1)}</h3>
+                            <p class="details"><b>${langResources.cellIdLabel[currentLang]}:</b> ${group.map(c => c.id).join(', ')}</p>
+                            <p class="details"><b>${langResources.cellResLabel[currentLang]}:</b> ${group.map(c => (c.res * 1000).toFixed(2)).join(' mΩ, ')} mΩ</p>
+                            <p><b>${langResources.parallelResLabel[currentLang]}:</b> ${(pRes * 1000).toFixed(2)} mΩ</p>
+                        </div>`;
+                });
+                dom.results.innerHTML += `<div id="total-result"><span>${langResources.totalResult[currentLang]}: ${(totalRes * 1000).toFixed(2)} mΩ</span></div>`;
+            };
+
+            const renderCharts = (cells, groups, p_val) => {
+                dom.charts.innerHTML = '<div class="chart-wrapper"><canvas id="groupedResistanceChart"></canvas></div>';
+                if (currentInputMode === 'csv') {
+                    dom.charts.innerHTML += '<div class="chart-wrapper"><canvas id="voltageChart"></canvas></div>';
+                }
+                dom.charts.innerHTML += '<div class="chart-wrapper"><canvas id="resistanceChart"></canvas></div>';
+
+                if (groupedChart) groupedChart.destroy();
+                if (voltageChart) voltageChart.destroy();
+                if (resistanceChart) resistanceChart.destroy();
+                if (cells.length === 0) return;
+
+                // Grouped Chart
+                const g_labels = groups.map((_, i) => `P${i + 1}`);
+                const colors = ['rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)'];
+                const datasets = Array.from({ length: p_val }, (_, i) => ({
+                    label: langResources.parallelPositionLabel[currentLang].replace('{i}', i + 1),
+                    data: groups.map(g => (g[i] ? g[i].res * 1000 : null)),
+                    backgroundColor: colors[i % colors.length]
+                }));
+                groupedChart = new Chart(document.getElementById('groupedResistanceChart'), {
+                    type: 'bar', data: { labels: g_labels, datasets: datasets },
+                    options: { plugins: { title: { display: true, text: langResources.groupedChartTitle[currentLang] } }, scales: { y: { beginAtZero: false, title: { display: true, text: langResources.resistanceAxisLabel[currentLang] } } } }
+                });
+
+                // Individual Charts
+                const i_labels = cells.map(c => c.id);
+                if (currentInputMode === 'csv') {
+                    const voltageCanvas = document.getElementById('voltageChart');
+                    if(voltageCanvas) {
+                         voltageChart = new Chart(voltageCanvas, {
+                            type: 'bar', data: { labels: i_labels, datasets: [{ label: langResources.voltageAxisLabel[currentLang], data: cells.map(c => c.voltage), backgroundColor: 'rgba(54, 162, 235, 0.6)' }] },
+                            options: { plugins: { title: { display: true, text: langResources.voltageChartTitle[currentLang] } }, scales: { y: { beginAtZero: false, title: { display: true, text: langResources.voltageAxisLabel[currentLang] } } } }
+                        });
+                    }
+                }
+                const resistanceCanvas = document.getElementById('resistanceChart');
+                if(resistanceCanvas) {
+                    resistanceChart = new Chart(resistanceCanvas, {
+                        type: 'bar', data: { labels: i_labels, datasets: [{ label: langResources.resistanceAxisLabel[currentLang], data: cells.map(c => c.res * 1000), backgroundColor: 'rgba(255, 99, 132, 0.6)' }] },
+                        options: { plugins: { title: { display: true, text: langResources.resistanceChartTitle[currentLang] } }, scales: { y: { beginAtZero: false, title: { display: true, text: langResources.resistanceAxisLabel[currentLang] } } } }
+                    });
+                }
+            };
+
+            const parseCSV = (text) => {
+                const lines = text.trim().split(/\r\n|\n/);
+                const header = lines[0].toLowerCase();
+                const hasHeader = header.includes('id') || header.includes('group') || header.includes('voltage');
+                const dataLines = hasHeader ? lines.slice(1) : lines;
+
+                return dataLines.map(line => {
+                    const p = line.split(',');
+                    if (p.length < 5) return null;
+                    return { id: parseInt(p[0],10), group: p[1], result: p[2].toUpperCase(), voltage: parseFloat(p[3]), res: parseFloat(p[4]) };
+                }).filter(c => c && c.group && !isNaN(c.id) && !isNaN(c.voltage) && !isNaN(c.res));
+            };
+            
+            const parseResistanceList = (text) => {
+                return text.trim().split(/\r\n|\n/).map((line, index) => {
+                    const res_mOhm = parseFloat(line.trim());
+                    if (isNaN(res_mOhm) || res_mOhm <= 0) return null;
+                    return { id: index + 1, group: 'A', result: 'PASS', voltage: 0, res: res_mOhm / 1000 };
+                }).filter(c => c !== null);
+            };
+
+            // --- Init ---
+            dom.csvFile.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    dom.textInput.value = e.target.result;
+                    processInput(e.target.result);
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+
+            dom.textInput.addEventListener('input', (e) => processInput(e.target.value));
+
+            dom.enableVoltage.addEventListener('change', (e) => { dom.voltageMin.disabled = dom.voltageMax.disabled = !e.target.checked; });
+            dom.enableResistance.addEventListener('change', (e) => { dom.resistanceMin.disabled = dom.resistanceMax.disabled = !e.target.checked; });
+            dom.calculateBtn.addEventListener('click', calculateAndRender);
+            
+            setLanguage(currentLang);
+        });
+    </script>
+</body>
+</html>
