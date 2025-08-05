@@ -4,6 +4,8 @@
 
 "Upload the CSV file HISTORY.CSV (battery internal resistance measurement list) for HRM-10, or simply input the internal resistance values, one per line. Then, select your desired series-parallel combination for the battery pack. The system will automatically generate a battery pack pairing list, ensuring that the internal resistance of each battery group is similar. Additionally, it will provide a visual representation of the batteries' internal resistance and voltage."
 
+[線上Online](https://void.ics.app/cdn/battery_matcher_i18n.html)
+
 # 電池配對工具 - 使用說明
 
 ## Battery Cell Matching Tool - User Guide
@@ -49,10 +51,13 @@ No.,Group,Result,Voltage,Resistor,Date,Time
 2,M3,PASS,4.1940,0.0181,2025/08/06,00:47:22
 ...
 ```
-[線上Online](https://void.ics.app/cdn/battery_matcher_i18n.html)
+
 <img width="410" height="442" alt="image" src="https://github.com/user-attachments/assets/e69ccdba-f06c-4358-a752-177814010005" />
+<br>
 <img width="419" height="403" alt="image" src="https://github.com/user-attachments/assets/ec6902c3-8106-47fe-8b5f-3dc9b837b88a" />
+<br>
 <img width="410" height="206" alt="image" src="https://github.com/user-attachments/assets/2ad69c9d-462e-4140-a14d-9acf4330b9b3" />
+<br>
 <img width="419" height="416" alt="image" src="https://github.com/user-attachments/assets/bcee246f-3eaf-48f3-bf40-6f9e9daf0cbf" />
 
 
