@@ -41,7 +41,7 @@
 
 -   您的 CSV 檔案需要包含 `No.`, `Group`, `Result`, `Voltage`, `Resistor` 這幾個欄位。
 -   **Your CSV file must contain the following columns: `No.`, `Group`, `Result`, `Voltage`, `Resistor`.**
--   
+
 **範例 (Example):**
 ```csv
 No.,Group,Result,Voltage,Resistor,Date,Time
