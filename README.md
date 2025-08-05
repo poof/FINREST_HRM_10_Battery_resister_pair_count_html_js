@@ -49,6 +49,7 @@ No.,Group,Result,Voltage,Resistor,Date,Time
 2,M3,PASS,4.1940,0.0181,2025/08/06,00:47:22
 ...
 ```
+[線上Online](https://void.ics.app/cdn/battery_matcher_i18n.html)
 <img width="410" height="442" alt="image" src="https://github.com/user-attachments/assets/e69ccdba-f06c-4358-a752-177814010005" />
 <img width="419" height="403" alt="image" src="https://github.com/user-attachments/assets/ec6902c3-8106-47fe-8b5f-3dc9b837b88a" />
 <img width="410" height="206" alt="image" src="https://github.com/user-attachments/assets/2ad69c9d-462e-4140-a14d-9acf4330b9b3" />
