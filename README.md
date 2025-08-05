@@ -2,7 +2,7 @@
 上傳HRM-10的CSV檔案HISTORY.CSV(電池量測內阻清單)，或是簡易輸入電池內阻，一行一個，
 選擇你要的電池組串並聯組合， 就可以自動產生電池組配對表， 讓每一組電池的內阻相近， 並且可以視覺化呈現電池的內阻、電壓。
 
-"To automatically generate a battery pairing list where the internal resistance of each battery pack is similar, simply upload the CSV file HISTORY.CSV (Battery Internal Resistance Measurement List) from HRM-10. After selecting your desired series-parallel combination, the system will create the pairing list. It also provides a visual representation of the batteries' internal resistance and voltage."
+"Upload the CSV file HISTORY.CSV (battery internal resistance measurement list) for HRM-10, or simply input the internal resistance values, one per line. Then, select your desired series-parallel combination for the battery pack. The system will automatically generate a battery pack pairing list, ensuring that the internal resistance of each battery group is similar. Additionally, it will provide a visual representation of the batteries' internal resistance and voltage."
 
 # 電池配對工具 - 使用說明
 
